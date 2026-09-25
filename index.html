@@ -1,1 +1,817 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VSCodePython By Fahri Dev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<style>
+  :root {
+    --bg-editor: #1e1e1e;
+    --bg-sidebar: #181818;
+    --bg-titlebar: #232323;
+    --bg-tab: #1e1e1e;
+    --bg-tab-inactive: #181818;
+    --bg-statusbar: #d97757;
+    --bg-terminal: #0c0c0c;
+    --border: #2a2a2a;
+    --text-main: #cccccc;
+    --text-dim: #6f6f6f;
+    --text-bright: #ffffff;
+    --accent: #d97757;
+    --accent-dim: #a35a3f;
+    --green: #4ec990;
+    --blue: #6ab7ff;
+    --yellow: #e5c07b;
+    --purple: #c586c0;
+    --red: #f14c4c;
+    --line-num: #4a4a4a;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-ui: 'Inter', system-ui, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+  }
 
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg-editor);
+    font-family: var(--font-ui);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* ===== TITLE BAR ===== */
+  .titlebar {
+    height: 40px;
+    min-height: 40px;
+    background: var(--bg-titlebar);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    padding-top: env(safe-area-inset-top, 0px);
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .titlebar .dots { display: flex; gap: 7px; }
+  .titlebar .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.red { background: #ff5f56; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #27c93f; }
+  .titlebar .brand {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.2px;
+    margin-left: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .titlebar .brand b { color: var(--text-main); font-weight: 600; }
+  .titlebar .brand span.by { color: var(--accent); }
+
+  /* ===== MAIN BODY ===== */
+  .workbench {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ===== ACTIVITY BAR (icons) ===== */
+  .activitybar {
+    width: 48px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 12px;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .activitybar .icon {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+  }
+  .activitybar .icon.active {
+    color: var(--text-bright);
+    border-left: 2px solid var(--accent);
+  }
+  .activitybar .icon svg { width: 20px; height: 20px; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 220px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.15s ease;
+  }
+  .sidebar.collapsed { width: 0; border-right: none; overflow: hidden; }
+  .sidebar-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    padding: 12px 16px 8px;
+    font-weight: 600;
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 16px;
+    font-size: 13.5px;
+    color: var(--text-main);
+    cursor: pointer;
+    background: rgba(255,255,255,0.06);
+    border-left: 2px solid var(--accent);
+  }
+  .file-item svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--yellow); }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 10px 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  /* ===== EDITOR AREA ===== */
+  .editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--bg-editor);
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--bg-tab-inactive);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: var(--bg-tab);
+    border-right: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-bright);
+    white-space: nowrap;
+  }
+  .tab svg { width: 14px; height: 14px; color: var(--yellow); }
+  .tab .dirty-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-main); }
+
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg-editor);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .breadcrumb {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .run-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--accent);
+    color: #1a1a1a;
+    border: none;
+    padding: 7px 16px;
+    border-radius: 5px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.12s ease, transform 0.06s ease;
+  }
+  .run-btn:hover { background: #e08863; }
+  .run-btn:active { transform: scale(0.97); }
+  .run-btn:disabled { opacity: 0.55; cursor: default; }
+  .run-btn svg { width: 14px; height: 14px; }
+
+  .code-wrap {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative;
+  }
+  .line-numbers {
+    padding: 14px 10px 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--line-num);
+    text-align: right;
+    user-select: none;
+    background: var(--bg-editor);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  #code-editor {
+    flex: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    background: var(--bg-editor);
+    color: var(--text-main);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 22px;
+    padding: 14px 14px 14px 0;
+    tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  .statusbar {
+    height: 24px;
+    min-height: 24px;
+    background: var(--bg-statusbar);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    font-size: 11.5px;
+    color: #241209;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .statusbar .left, .statusbar .right { display: flex; align-items: center; gap: 14px; }
+
+  /* ===== TERMINAL FULLSCREEN MODE ===== */
+  .terminal-view {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-terminal);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .terminal-view.active { display: flex; }
+
+  .terminal-titlebar {
+    height: 38px;
+    min-height: 38px;
+    background: #161616;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid #262626;
+    flex-shrink: 0;
+  }
+  .terminal-titlebar .label {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .terminal-titlebar .label .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse 1.4s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .term-close {
+    background: transparent;
+    border: 1px solid #333;
+    color: var(--text-dim);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .term-close:hover { color: var(--text-bright); border-color: #555; }
+
+  .terminal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #d4d4d4;
+    -webkit-overflow-scrolling: touch;
+  }
+  .terminal-body .line { white-space: pre-wrap; word-break: break-word; }
+  .terminal-body .prompt-line { color: var(--green); }
+  .terminal-body .prompt-line .path { color: var(--blue); }
+  .terminal-body .stdout { color: #d4d4d4; }
+  .terminal-body .stderr { color: var(--red); }
+  .terminal-body .info { color: var(--text-dim); }
+  .terminal-body .success { color: var(--green); }
+  .terminal-body .cursor-row { display: flex; align-items: center; }
+  .blinking-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: var(--green);
+    margin-left: 6px;
+    animation: blink 1s step-start infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* input line for stdin() support */
+  .term-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 16px;
+    border-top: 1px solid #1f1f1f;
+    flex-shrink: 0;
+    background: #0c0c0c;
+  }
+  .term-input-row.hidden { display: none; }
+  .term-input-row .arrow { color: var(--green); font-family: var(--font-mono); font-size: 13px; }
+  .term-input-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+  }
+  .term-input-row button {
+    background: var(--accent);
+    border: none;
+    color: #1a1a1a;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+
+  /* loading overlay */
+  .boot-overlay {
+    position: fixed;
+    inset: 0;
+    background: #161616;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    color: var(--text-main);
+    font-family: var(--font-mono);
+  }
+  .boot-overlay .logo {
+    font-size: 15px;
+    color: var(--text-bright);
+    letter-spacing: 0.5px;
+  }
+  .boot-overlay .logo b { color: var(--accent); }
+  .spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #2a2a2a;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .boot-status { font-size: 12px; color: var(--text-dim); }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+  /* mobile adjustments */
+  @media (max-width: 720px) {
+    .sidebar { position: absolute; top: 40px; bottom: 24px; left: 48px; z-index: 20; }
+    .sidebar-title { display: none; }
+    .breadcrumb { display: none; }
+    .titlebar .brand { font-size: 11px; }
+    .run-btn span.run-label { display: none; }
+    .run-btn { padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="dots">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+    </div>
+    <div class="brand"><b>VSCodePython</b> &nbsp;<span class="by">By Fahri Dev</span></div>
+  </div>
+
+  <div class="workbench">
+    <!-- Activity bar -->
+    <div class="activitybar">
+      <div class="icon active" title="Explorer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z" opacity="0"/><path d="M3 7l3-3h5l2 2h8v13H3z"/></svg>
+      </div>
+      <div class="icon" title="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </div>
+      <div class="icon" title="Run">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3l14 9-14 9V3z"/></svg>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-title">Explorer</div>
+      <div class="sidebar-title" style="padding-top:0; font-size:10.5px; opacity:0.7;">VSCODEPYTHON</div>
+      <div class="file-item">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        main.py
+      </div>
+      <div class="sidebar-footer">
+        Python 3.11 (Pyodide/WASM)<br>
+        Eksekusi berjalan langsung<br>di browser kamu.
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor-area">
+      <div class="tabs">
+        <div class="tab">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+          main.py
+          <span class="dirty-dot"></span>
+        </div>
+      </div>
+      <div class="editor-toolbar">
+        <div class="breadcrumb">VSCodePython &gt; main.py</div>
+        <button class="run-btn" id="runBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+          <span class="run-label">Run Python</span>
+        </button>
+      </div>
+      <div class="code-wrap">
+        <div class="line-numbers" id="lineNumbers">1</div>
+        <textarea id="code-editor" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      </div>
+      <div class="statusbar">
+        <div class="left">
+          <span>⚡ main.py</span>
+          <span id="pyStatus">Python siap</span>
+        </div>
+        <div class="right">
+          <span>UTF-8</span>
+          <span>Python</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Terminal -->
+<div class="terminal-view" id="terminalView">
+  <div class="terminal-titlebar">
+    <div class="label"><span class="pulse"></span> Fahz Terminal</div>
+    <button class="term-close" id="closeTerminal">Kembali ke Editor ✕</button>
+  </div>
+  <div class="terminal-body" id="terminalBody"></div>
+  <div class="term-input-row hidden" id="termInputRow">
+    <span class="arrow">&gt;</span>
+    <input type="text" id="termInput" placeholder="Ketik input lalu tekan Enter..." autocomplete="off" autocapitalize="off">
+    <button id="termSend">Kirim</button>
+  </div>
+</div>
+
+<!-- Boot overlay -->
+<div class="boot-overlay" id="bootOverlay">
+  <div class="logo"><b>VSCodePython</b> By Fahri Dev</div>
+  <div class="spinner"></div>
+  <div class="boot-status" id="bootStatus">Menyiapkan Python runtime...</div>
+</div>
+
+<script>
+const DEFAULT_CODE = `# Selamat datang di VSCodePython By Fahri Dev
+# Tulis kode Python kamu di sini, lalu tekan tombol Run
+
+nama = input("Siapa nama kamu? ")
+print(f"Halo, {nama}! Selamat datang di Fahz Terminal.")
+
+total = 0
+for i in range(1, 6):
+    total += i
+    print(f"Menjumlahkan {i}, total sekarang: {total}")
+
+print("Selesai! Total akhirnya adalah", total)
+`;
+
+const codeEditor = document.getElementById('code-editor');
+const lineNumbers = document.getElementById('lineNumbers');
+const runBtn = document.getElementById('runBtn');
+const terminalView = document.getElementById('terminalView');
+const terminalBody = document.getElementById('terminalBody');
+const closeTerminal = document.getElementById('closeTerminal');
+const bootOverlay = document.getElementById('bootOverlay');
+const bootStatus = document.getElementById('bootStatus');
+const pyStatus = document.getElementById('pyStatus');
+const termInputRow = document.getElementById('termInputRow');
+const termInput = document.getElementById('termInput');
+const termSend = document.getElementById('termSend');
+
+codeEditor.value = DEFAULT_CODE;
+
+function updateLineNumbers() {
+  const lines = codeEditor.value.split('\n').length;
+  let out = '';
+  for (let i = 1; i <= lines; i++) out += i + '\n';
+  lineNumbers.textContent = out;
+}
+codeEditor.addEventListener('input', updateLineNumbers);
+codeEditor.addEventListener('scroll', () => {
+  lineNumbers.scrollTop = codeEditor.scrollTop;
+});
+codeEditor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = codeEditor.selectionStart;
+    const end = codeEditor.selectionEnd;
+    codeEditor.value = codeEditor.value.substring(0, start) + '    ' + codeEditor.value.substring(end);
+    codeEditor.selectionStart = codeEditor.selectionEnd = start + 4;
+    updateLineNumbers();
+  }
+});
+updateLineNumbers();
+
+// ===== Terminal helpers =====
+function termAppend(text, cls) {
+  const div = document.createElement('div');
+  div.className = 'line ' + (cls || 'stdout');
+  div.textContent = text;
+  terminalBody.appendChild(div);
+  terminalBody.scrollTop = terminalBody.scrollHeight;
+  return div;
+}
+function termAppendHTML(html, cls) {
+  const div = document.createElement('div');
+  div.className = 'line ' + (cls || 'stdout');
+  div.innerHTML = html;
+  terminalBody.appendChild(div);
+  terminalBody.scrollTop = terminalBody.scrollHeight;
+  return div;
+}
+
+function openTerminal() {
+  terminalView.classList.add('active');
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else if (document.documentElement.webkitRequestFullscreen) {
+    document.documentElement.webkitRequestFullscreen();
+  }
+}
+function closeTerminalFn() {
+  terminalView.classList.remove('active');
+  if (document.exitFullscreen && document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+    document.webkitExitFullscreen();
+  }
+}
+closeTerminal.addEventListener('click', closeTerminalFn);
+
+// ===== Pyodide setup =====
+let pyodide = null;
+let pyodideReady = false;
+
+async function initPyodide() {
+  try {
+    bootStatus.textContent = 'Mengunduh Python runtime (WASM)...';
+    pyodide = await loadPyodide();
+    bootStatus.textContent = 'Menyiapkan lingkungan Fahz Terminal...';
+    pyodideReady = true;
+    pyStatus.textContent = 'Python siap';
+    bootOverlay.style.display = 'none';
+  } catch (err) {
+    bootStatus.textContent = 'Gagal memuat Python runtime. Cek koneksi internet lalu muat ulang halaman.';
+    console.error(err);
+  }
+}
+initPyodide();
+
+// stdin bridge: resolves when user submits input
+let pendingResolve = null;
+function requestInput(promptText) {
+  return new Promise((resolve) => {
+    pendingResolve = resolve;
+    if (promptText) {
+      termAppendHTML(`<span class="stdout">${escapeHtml(promptText)}</span>`);
+    }
+    termInputRow.classList.remove('hidden');
+    termInput.value = '';
+    termInput.focus();
+  });
+}
+function submitInput() {
+  const val = termInput.value;
+  termAppend('> ' + val, 'info');
+  termInputRow.classList.add('hidden');
+  if (pendingResolve) {
+    const r = pendingResolve;
+    pendingResolve = null;
+    r(val);
+  }
+}
+termSend.addEventListener('click', submitInput);
+termInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitInput();
+});
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+async function runPythonCode(code) {
+  terminalBody.innerHTML = '';
+  termAppendHTML(`<span class="prompt-line">fahri@vscodepython</span><span class="stdout">:</span><span class="path">~/main.py</span><span class="stdout"> $ python3 main.py</span>`);
+  termAppend('');
+
+  if (!pyodideReady) {
+    termAppend('Python runtime belum siap, tunggu sebentar...', 'info');
+    await new Promise(r => {
+      const check = setInterval(() => { if (pyodideReady) { clearInterval(check); r(); } }, 200);
+    });
+  }
+
+  // Redirect stdout/stderr
+  pyodide.setStdout({
+    batched: (msg) => { termAppend(msg, 'stdout'); }
+  });
+  pyodide.setStderr({
+    batched: (msg) => { termAppend(msg, 'stderr'); }
+  });
+
+  // Custom input() via a JS callback exposed to Python, wired to an async builtins.input
+  pyodide.globals.set('__js_input__', (promptText) => requestInput(promptText));
+
+  try {
+    // Patch builtins.input, then rewrite the user's code so every input(...) call
+    // becomes "await input(...)" automatically -- this lets normal-looking
+    // input() calls in the user's script actually pump the JS terminal.
+    await pyodide.runPythonAsync(`
+import builtins, ast
+
+async def _patched_input(prompt=""):
+    return await __js_input__(prompt)
+
+builtins.input = _patched_input
+
+class _AwaitInputTransformer(ast.NodeTransformer):
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Name) and node.func.id == "input":
+            return ast.Await(value=node)
+        return node
+
+    def visit_FunctionDef(self, node):
+        # Don't rewrite input() calls inside nested "def" (sync) functions,
+        # since "await" is only valid in async scopes. Leave sync input() as-is;
+        # it will simply raise if actually called (rare for interactive scripts).
+        return node
+
+def __run_user_source__(src):
+    tree = ast.parse(src, mode="exec")
+    tree = _AwaitInputTransformer().visit(tree)
+    ast.fix_missing_locations(tree)
+    # Declare every top-level assigned/def/class name as "global" inside the
+    # async wrapper so the user's variables and functions land in the module's
+    # real global namespace instead of being trapped as locals of the wrapper.
+    names = set()
+    for n in tree.body:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(n.name)
+        elif isinstance(n, ast.Assign):
+            for t in n.targets:
+                if isinstance(t, ast.Name):
+                    names.add(t.id)
+        elif isinstance(n, (ast.AugAssign, ast.AnnAssign)):
+            if isinstance(n.target, ast.Name):
+                names.add(n.target.id)
+        elif isinstance(n, ast.Import):
+            for a in n.names:
+                names.add((a.asname or a.name).split(".")[0])
+        elif isinstance(n, ast.ImportFrom):
+            for a in n.names:
+                names.add(a.asname or a.name)
+
+    body = list(tree.body) if tree.body else [ast.Pass()]
+    if names:
+        global_stmt = ast.Global(names=sorted(names))
+        ast.fix_missing_locations(global_stmt)
+        body = [global_stmt] + body
+
+    async_wrapper = ast.parse("async def __main_coro__():\\n    pass", mode="exec").body[0]
+    async_wrapper.body = body
+    ast.fix_missing_locations(async_wrapper)
+    module = ast.Module(body=[async_wrapper], type_ignores=[])
+    ast.fix_missing_locations(module)
+    code_obj = compile(module, "<main.py>", "exec")
+    exec(code_obj, globals())
+`);
+
+    await pyodide.runPythonAsync(`__run_user_source__(${JSON.stringify(code)})`);
+    await pyodide.runPythonAsync(`await __main_coro__()`);
+
+    termAppend('');
+    termAppendHTML(`<span class="success">✓ Proses selesai dengan kode keluar 0</span>`);
+  } catch (err) {
+    let msg = err && err.message ? err.message : String(err);
+    // Clean up pyodide's verbose traceback prefix a bit
+    termAppend('');
+    termAppend(msg, 'stderr');
+    termAppendHTML(`<span class="stderr">✗ Proses berhenti karena error</span>`);
+  } finally {
+    termInputRow.classList.add('hidden');
+    const row = document.createElement('div');
+    row.className = 'cursor-row';
+    row.innerHTML = `<span class="prompt-line">fahri@vscodepython</span><span class="stdout">:</span><span class="path">~</span><span class="stdout">$</span><span class="blinking-cursor"></span>`;
+    terminalBody.appendChild(row);
+    terminalBody.scrollTop = terminalBody.scrollHeight;
+  }
+}
+
+runBtn.addEventListener('click', async () => {
+  const code = codeEditor.value;
+  if (!code.trim()) return;
+  runBtn.disabled = true;
+  pyStatus.textContent = 'Menjalankan...';
+  openTerminal();
+  try {
+    await runPythonCode(code);
+  } finally {
+    runBtn.disabled = false;
+    pyStatus.textContent = 'Python siap';
+  }
+});
+
+// Handle fullscreen exit via ESC/back
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && terminalView.classList.contains('active')) {
+    // user exited fullscreen manually (e.g. ESC) - keep terminal open but not fullscreen
+  }
+});
+</script>
+</body>
+  </html>
